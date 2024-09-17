@@ -39,7 +39,20 @@ public class AggregationServer {
       }
     }
 
-    private void handleGetRequest(HttpExchange exchange) throws IOException {}
+    private void handleGetRequest(HttpExchange exchange) throws IOException {
+      File file = new File(WEATHER_DATA_FILE);
+      if (file.exists()) {
+        // Read the data from the file and return it as a JSON response
+        String json = new String(Files.readAllBytes(file.toPath()));
+        exchange.sendResponseHeaders(200, json.length());
+        OutputStream os = exchange.getResponseBody();
+        os.write(json.getBytes());
+        os.close();
+      } else {
+        exchange.sendResponseHeaders(204, -1);
+        exchange.close();
+      }
+    }
 
     private void handlePutRequest(HttpExchange exchange) throws IOException {
       // input the weather data
