@@ -7,6 +7,7 @@ import java.net.InetSocketAddress;
 import java.nio.file.*;
 import java.util.Map;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -15,6 +16,7 @@ public class AggregationServer {
   private static final int DEFAULT_PORT = 4567;
   private static final String WEATHER_DATA_FILE = "weather_data.json";
   private static final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+  private static final AtomicInteger lamportClock = new AtomicInteger(0);
 
   public static void main(String[] args) throws IOException {
     int port = (args.length > 0) ? Integer.parseInt(args[0]) : DEFAULT_PORT;
@@ -31,6 +33,7 @@ public class AggregationServer {
     public void handle(HttpExchange exchange) throws IOException {
       // get the request method and increment the lamport clock
       String method = exchange.getRequestMethod();
+      lamportClock.incrementAndGet();
 
       // determine the request method
       if (method.equalsIgnoreCase("GET")) {
