@@ -5,20 +5,23 @@ ifeq ($(UNAME_S),Darwin)
     # macOS
     DEL = rm -f
     OPEN_TERMINAL = open -a Terminal .
+    CP = -cp ".:lib/gson-2.11.0.jar"
 
 else ifeq ($(UNAME_S),Linux)
     # Linux
     DEL = rm -f
     OPEN_TERMINAL = open -a Terminal .
+    CP = -cp ".:lib/gson-2.11.0.jar"
+
 else
     # Windows
     DEL = del
     OPEN_TERMINAL = start cmd
+    CP = -cp ".;lib/gson-2.11.0.jar"
 endif
 
 JAVAC = javac
 JAVA = java
-CP = -cp ".;lib/gson-2.11.0.jar"
 
 MAIN = main
 
