@@ -3,8 +3,11 @@ import java.io.*;
 import java.net.*;
 import java.nio.file.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ContentServer {
+
+  private static final AtomicInteger lamportClock = new AtomicInteger(0);
 
   public static void main(String[] args) {
     if (args.length < 2) {
@@ -33,16 +36,36 @@ public class ContentServer {
       conn.setRequestProperty("Content-Type", "application/json");
       conn.setDoOutput(true);
 
+      // Set Lamport Clock in request headers
+      conn.setRequestProperty(
+        "Lamport-Clock",
+        String.valueOf(lamportClock.get())
+      );
+
       // output the weather data to the server
-      OutputStream os = conn.getOutputStream();
-      os.write(json.getBytes());
-      os.flush();
-      os.close();
+      try (OutputStream os = conn.getOutputStream()) {
+        byte[] input = json.getBytes("utf-8");
+        os.write(input, 0, input.length);
+      }
 
       // get response code
       int responseCode = conn.getResponseCode();
+
+      // Update Lamport Clock based on server response
+      String serverClock = conn.getHeaderField("Lamport-Clock");
+      if (serverClock != null) {
+        int receivedClock = Integer.parseInt(serverClock);
+        lamportClock.updateAndGet(localClock ->
+          Math.max(receivedClock, localClock) + 1
+        );
+      } else {
+        // If no clock was received, just increment the local clock
+        lamportClock.incrementAndGet();
+      }
+
       if (responseCode == 200 || responseCode == 201) {
         System.out.println("Weather data uploaded successfully.");
+        System.out.println("Current Lamport Clock: " + lamportClock.get());
       } else {
         System.out.println("Error: " + responseCode);
       }
