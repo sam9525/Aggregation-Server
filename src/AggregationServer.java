@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.file.*;
+import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -17,6 +18,8 @@ public class AggregationServer {
   private static final String WEATHER_DATA_FILE = "weather_data.json";
   private static final ReadWriteLock rwLock = new ReentrantReadWriteLock();
   private static final AtomicInteger lamportClock = new AtomicInteger(0);
+  private static final int MAX_SECONDS = 30;
+  private static long lastCommunicationTime = System.currentTimeMillis();
 
   public static void main(String[] args) throws IOException {
     int port = (args.length > 0) ? Integer.parseInt(args[0]) : DEFAULT_PORT;
@@ -77,6 +80,18 @@ public class AggregationServer {
           Gson gson = new Gson();
           Map<String, Object> weatherData = gson.fromJson(json, Map.class);
 
+          // Check if the data is older than 30 seconds
+          if (
+            System.currentTimeMillis() -
+            lastCommunicationTime >
+            MAX_SECONDS *
+            1000
+          ) {
+            // Data is too old, delete it
+            file.delete();
+            exchange.sendResponseHeaders(204, -1);
+            return;
+          }
           // Update the Lamport Clock in the JSON if it's older than the current clock
           int storedClock =
             (
@@ -88,6 +103,9 @@ public class AggregationServer {
             // Write the updated JSON back to the file
             Files.write(Paths.get(WEATHER_DATA_FILE), json.getBytes());
           }
+
+          // Update the last communication time
+          lastCommunicationTime = System.currentTimeMillis();
 
           exchange
             .getResponseHeaders()
@@ -129,6 +147,10 @@ public class AggregationServer {
 
           // Write the validated data to the weather_data.json file
           Files.write(Paths.get(WEATHER_DATA_FILE), updatedJson.getBytes());
+
+          // Update the last communication time
+          lastCommunicationTime = System.currentTimeMillis();
+
           exchange.sendResponseHeaders(200, 0);
         } else {
           exchange.sendResponseHeaders(500, 0);
