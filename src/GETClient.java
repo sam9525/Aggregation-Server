@@ -1,7 +1,12 @@
+import com.google.gson.Gson;
 import java.io.*;
 import java.net.*;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class GETClient {
+
+  private static final AtomicInteger lamportClock = new AtomicInteger(0);
 
   public static void main(String[] args) {
     if (args.length < 1) {
@@ -20,23 +25,62 @@ public class GETClient {
       HttpURLConnection conn = (HttpURLConnection) url.openConnection();
       conn.setRequestMethod("GET");
 
+      // Set Lamport Clock in request headers
+      conn.setRequestProperty(
+        "Lamport-Clock",
+        String.valueOf(lamportClock.get())
+      );
+
       int responseCode = conn.getResponseCode();
-      if (responseCode == 200) {
-        // read the data
+
+      // Update Lamport Clock based on server response
+      String serverClock = conn.getHeaderField("Lamport-Clock");
+      if (serverClock != null) {
+        int receivedClock = Integer.parseInt(serverClock);
+        lamportClock.updateAndGet(localClock ->
+          Math.max(receivedClock, localClock) + 1
+        );
+      } else {
+        lamportClock.incrementAndGet();
+      }
+
+      if (responseCode == HttpURLConnection.HTTP_OK) {
         BufferedReader in = new BufferedReader(
           new InputStreamReader(conn.getInputStream())
         );
         String inputLine;
         StringBuilder content = new StringBuilder();
+
         while ((inputLine = in.readLine()) != null) {
-          content.append(inputLine).append("\n");
+          content.append(inputLine);
         }
+
+        // Parse the JSON response
+        Gson gson = new Gson();
+        Map<String, Object> weatherData = gson.fromJson(
+          content.toString(),
+          Map.class
+        );
+
+        // Extract the server's Lamport clock from the JSON
+        Object serverLamportClock = weatherData.get("lamport_clock");
+
+        System.out.println("Weather Data get successfully.");
+
+        // Display the weather data including Lamport Clock
+        System.out.println(
+          "Server Lamport Clock: " +
+          serverLamportClock +
+          ", Client Lamport Clock: " +
+          lamportClock.get()
+        );
+
+        for (Map.Entry<String, Object> entry : weatherData.entrySet()) {
+          System.out.println(entry.getKey() + ": " + entry.getValue());
+        }
+
         in.close();
         conn.disconnect();
-
-        // display the weather data
-        System.out.println("Weather Data:");
-        System.out.println(content.toString());
       } else if (responseCode == 204) {
         System.out.println("No data avaliable.");
       } else {
