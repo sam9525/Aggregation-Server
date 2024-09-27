@@ -42,6 +42,20 @@ allows only one client to write the data at a time.
 
 Using `AtomicInteger` to implement the Lamport Clock.
 
+Update the Lamport Clock in the JSON if it's older than the current clock.
+
+```
+lamportClock.updateAndGet(localClock ->
+  Math.max(receivedClock, localClock) + 1
+);
+```
+
+Put the Lamport Clock in the JSON.
+
+```
+weatherData.put("lamport_clock", lamportClock.get());
+```
+
 ### JSON
 
 Using `Gson` to convert txt to JSON.
@@ -49,4 +63,14 @@ Using `Gson` to convert txt to JSON.
 ```
 Gson gson = new Gson();
 String json = gson.toJson(*data*);
+```
+
+### Delete JSON
+
+If the client does not send a request for 30 seconds, the server will delete the JSON file.
+
+Get the current time and store it in `lastCommunicationTime`.
+
+```
+lastCommunicationTime = System.currentTimeMillis();
 ```
