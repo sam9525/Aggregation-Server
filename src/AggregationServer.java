@@ -5,7 +5,6 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.file.*;
-import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -14,10 +13,28 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class AggregationServer {
 
+  public class LamportClock {
+
+    private static final AtomicInteger lamportClock = new AtomicInteger(0);
+
+    public static int getValue() {
+      return lamportClock.get();
+    }
+
+    public static int incrementAndGet() {
+      return lamportClock.incrementAndGet();
+    }
+
+    public static int updateAndGet(int receivedClock) {
+      return lamportClock.updateAndGet(localClock ->
+        Math.max(receivedClock, localClock) + 1
+      );
+    }
+  }
+
   private static final int DEFAULT_PORT = 4567;
   private static final String WEATHER_DATA_FILE = "weather_data.json";
   private static final ReadWriteLock rwLock = new ReentrantReadWriteLock();
-  private static final AtomicInteger lamportClock = new AtomicInteger(0);
   private static final int MAX_SECONDS = 30;
   private static long lastCommunicationTime = System.currentTimeMillis();
 
@@ -44,18 +61,16 @@ public class AggregationServer {
       if (clientClock != null) {
         int receivedClock = Integer.parseInt(clientClock);
         // Update the local clock: max(received clock, local clock) + 1
-        lamportClock.updateAndGet(localClock ->
-          Math.max(receivedClock, localClock) + 1
-        );
+        LamportClock.updateAndGet(receivedClock);
       } else {
         // If no clock was received, just increment the local clock
-        lamportClock.incrementAndGet();
+        LamportClock.incrementAndGet();
       }
 
       // Set the updated Lamport Clock in the response headers
       exchange
         .getResponseHeaders()
-        .set("Lamport-Clock", String.valueOf(lamportClock.get()));
+        .set("Lamport-Clock", String.valueOf(LamportClock.getValue()));
 
       // determine the request method
       if (method.equalsIgnoreCase("GET")) {
@@ -97,8 +112,8 @@ public class AggregationServer {
             (
               (Double) weatherData.getOrDefault("lamport_clock", 0.0)
             ).intValue();
-          if (lamportClock.get() > storedClock) {
-            weatherData.put("lamport_clock", lamportClock.get());
+          if (LamportClock.getValue() > storedClock) {
+            weatherData.put("lamport_clock", LamportClock.getValue());
             json = gson.toJson(weatherData);
             // Write the updated JSON back to the file
             Files.write(Paths.get(WEATHER_DATA_FILE), json.getBytes());
@@ -109,7 +124,7 @@ public class AggregationServer {
 
           exchange
             .getResponseHeaders()
-            .set("Lamport-Clock", String.valueOf(lamportClock.get()));
+            .set("Lamport-Clock", String.valueOf(LamportClock.getValue()));
           exchange.sendResponseHeaders(200, json.length());
           OutputStream os = exchange.getResponseBody();
           os.write(json.getBytes());
@@ -117,7 +132,7 @@ public class AggregationServer {
         } else {
           exchange
             .getResponseHeaders()
-            .set("Lamport-Clock", String.valueOf(lamportClock.get()));
+            .set("Lamport-Clock", String.valueOf(LamportClock.getValue()));
           exchange.sendResponseHeaders(204, -1);
         }
       } finally {
@@ -140,7 +155,7 @@ public class AggregationServer {
           Map<String, Object> weatherData = gson.fromJson(body, Map.class);
 
           // Add the Lamport Clock to the JSON data
-          weatherData.put("lamport_clock", lamportClock.get());
+          weatherData.put("lamport_clock", LamportClock.getValue());
 
           // Convert back to JSON
           String updatedJson = gson.toJson(weatherData);

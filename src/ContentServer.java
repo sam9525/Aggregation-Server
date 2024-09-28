@@ -3,11 +3,8 @@ import java.io.*;
 import java.net.*;
 import java.nio.file.*;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class ContentServer {
-
-  private static final AtomicInteger lamportClock = new AtomicInteger(0);
 
   public static void main(String[] args) {
     if (args.length < 2) {
@@ -39,7 +36,7 @@ public class ContentServer {
       // Set Lamport Clock in request headers
       conn.setRequestProperty(
         "Lamport-Clock",
-        String.valueOf(lamportClock.get())
+        String.valueOf(AggregationServer.LamportClock.getValue())
       );
 
       // output the weather data to the server
@@ -55,17 +52,17 @@ public class ContentServer {
       String serverClock = conn.getHeaderField("Lamport-Clock");
       if (serverClock != null) {
         int receivedClock = Integer.parseInt(serverClock);
-        lamportClock.updateAndGet(localClock ->
-          Math.max(receivedClock, localClock) + 1
-        );
+        AggregationServer.LamportClock.updateAndGet(receivedClock);
       } else {
         // If no clock was received, just increment the local clock
-        lamportClock.incrementAndGet();
+        AggregationServer.LamportClock.incrementAndGet();
       }
 
       if (responseCode == 200 || responseCode == 201) {
         System.out.println("Weather data uploaded successfully.");
-        System.out.println("Current Lamport Clock: " + lamportClock.get());
+        System.out.println(
+          "Current Lamport Clock: " + AggregationServer.LamportClock.getValue()
+        );
       } else {
         System.out.println("Error: " + responseCode);
       }

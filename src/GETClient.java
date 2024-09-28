@@ -2,11 +2,8 @@ import com.google.gson.Gson;
 import java.io.*;
 import java.net.*;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class GETClient {
-
-  private static final AtomicInteger lamportClock = new AtomicInteger(0);
 
   public static void main(String[] args) {
     if (args.length < 1) {
@@ -28,7 +25,7 @@ public class GETClient {
       // Set Lamport Clock in request headers
       conn.setRequestProperty(
         "Lamport-Clock",
-        String.valueOf(lamportClock.get())
+        String.valueOf(AggregationServer.LamportClock.getValue())
       );
 
       int responseCode = conn.getResponseCode();
@@ -37,11 +34,9 @@ public class GETClient {
       String serverClock = conn.getHeaderField("Lamport-Clock");
       if (serverClock != null) {
         int receivedClock = Integer.parseInt(serverClock);
-        lamportClock.updateAndGet(localClock ->
-          Math.max(receivedClock, localClock) + 1
-        );
+        AggregationServer.LamportClock.updateAndGet(receivedClock);
       } else {
-        lamportClock.incrementAndGet();
+        AggregationServer.LamportClock.incrementAndGet();
       }
 
       if (responseCode == HttpURLConnection.HTTP_OK) {
@@ -72,7 +67,7 @@ public class GETClient {
           "Server Lamport Clock: " +
           serverLamportClock +
           ", Client Lamport Clock: " +
-          lamportClock.get()
+          AggregationServer.LamportClock.getValue()
         );
 
         for (Map.Entry<String, Object> entry : weatherData.entrySet()) {
