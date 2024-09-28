@@ -1,4 +1,5 @@
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -93,7 +94,10 @@ public class AggregationServer {
 
           // Parse the JSON to update the Lamport Clock if necessary
           Gson gson = new Gson();
-          Map<String, Object> weatherData = gson.fromJson(json, Map.class);
+          Map<String, Object> weatherData = gson.fromJson(
+            json,
+            new TypeToken<Map<String, Object>>() {}.getType()
+          );
 
           // Check if the data is older than 30 seconds
           if (
@@ -152,7 +156,10 @@ public class AggregationServer {
         if (isValidJson(body)) {
           // Parse the JSON
           Gson gson = new Gson();
-          Map<String, Object> weatherData = gson.fromJson(body, Map.class);
+          Map<String, Object> weatherData = gson.fromJson(
+            body,
+            new TypeToken<Map<String, Object>>() {}.getType()
+          );
 
           // Add the Lamport Clock to the JSON data
           weatherData.put("lamport_clock", LamportClock.getValue());

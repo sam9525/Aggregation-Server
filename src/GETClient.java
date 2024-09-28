@@ -1,4 +1,5 @@
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import java.io.*;
 import java.net.*;
 import java.util.Map;
@@ -54,7 +55,7 @@ public class GETClient {
         Gson gson = new Gson();
         Map<String, Object> weatherData = gson.fromJson(
           content.toString(),
-          Map.class
+          new TypeToken<Map<String, Object>>() {}.getType()
         );
 
         // Extract the server's Lamport clock from the JSON
