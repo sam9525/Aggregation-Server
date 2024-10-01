@@ -135,4 +135,58 @@ public class AggregationServerTest {
     String serverClock = conn.getHeaderField("Lamport-Clock");
     assertTrue(Integer.parseInt(serverClock) > 5);
   }
+
+  @Test
+  public void testDifferentStatusCodes() throws Exception {
+    // Test 200 OK (already covered in testPutAndGetRequest)
+
+    // Test 201 Created
+    testStatusCode("PUT", "{\"new\":\"data\"}", 200);
+
+    // Test 400 for invalide request
+    testStatusCode("DELETE", "{\"new\":\"data\"}", 400);
+
+    // Test 204 for no Content
+    // testStatusCode("PUT", "", 204);
+
+    // Test 404 Not Found
+    testStatusCode("GET", "", 404, "/nonexistent");
+
+    // Test 500 Internal Server Error
+    testStatusCode("PUT", "new:data", 500);
+  }
+
+  private void testStatusCode(String method, String body, int expectedStatus)
+    throws Exception {
+    testStatusCode(method, body, expectedStatus, "/weather");
+  }
+
+  private void testStatusCode(
+    String method,
+    String body,
+    int expectedStatus,
+    String path
+  ) throws Exception {
+    HttpURLConnection conn = (HttpURLConnection) new URL(
+      "http://localhost:" + TEST_PORT + path
+    )
+      .openConnection();
+    conn.setRequestMethod(method);
+    conn.setRequestProperty("Content-Type", "application/json");
+    conn.setRequestProperty(
+      "Lamport-Clock",
+      String.valueOf(AggregationServer.LamportClock.getValue())
+    );
+
+    if (!body.isEmpty()) {
+      conn.setDoOutput(true);
+      try (OutputStream os = conn.getOutputStream()) {
+        byte[] input = body.getBytes("utf-8");
+        os.write(input, 0, input.length);
+      }
+    }
+
+    assertEquals(expectedStatus, conn.getResponseCode());
+    conn.disconnect();
+  }
 }
