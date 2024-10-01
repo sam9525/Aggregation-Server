@@ -148,6 +148,8 @@ public class AggregationServer {
     private void handlePutRequest(HttpExchange exchange) throws IOException {
       rwLock.writeLock().lock();
       try {
+        File file = new File(WEATHER_DATA_FILE);
+
         // input the weather data
         InputStream is = exchange.getRequestBody();
         String body = new String(is.readAllBytes());
@@ -173,7 +175,7 @@ public class AggregationServer {
           // Update the last communication time
           lastCommunicationTime = System.currentTimeMillis();
 
-          exchange.sendResponseHeaders(200, 0);
+          exchange.sendResponseHeaders(file.exists() ? 200 : 201, 0);
         } else {
           exchange.sendResponseHeaders(500, 0);
         }
